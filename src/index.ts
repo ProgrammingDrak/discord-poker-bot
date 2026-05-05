@@ -6,6 +6,7 @@ import {
   MessageFlags
 } from "discord.js";
 import { loadConfig } from "./config.js";
+import { startHealthServer } from "./healthServer.js";
 import { logger } from "./logger.js";
 import { postPokerPoll } from "./polls.js";
 import { startSchedulers } from "./scheduler.js";
@@ -13,6 +14,7 @@ import { PollStore } from "./store.js";
 
 const config = loadConfig();
 const store = new PollStore(config.databasePath);
+const healthServer = startHealthServer();
 const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
@@ -54,6 +56,7 @@ async function handleInteraction(interaction: Interaction): Promise<void> {
 function shutdown(signal: string): void {
   logger.info("Shutting down Discord poker bot", { signal });
   store.close();
+  healthServer?.close();
   client.destroy();
   process.exit(0);
 }
