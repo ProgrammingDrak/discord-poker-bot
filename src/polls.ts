@@ -21,7 +21,7 @@ import { logger } from "./logger.js";
 import { PollSource, PollStore, StoredPoll } from "./store.js";
 
 const POLL_QUESTION = "When can you play poker next week?";
-const POLL_CONTENT = "Vote for every night you could play poker next week.";
+const POLL_CONTENT = "@everyone Vote for every night you could play poker next week.";
 
 export type WinnerSummaryInput = {
   answers: Array<{ id: number; text: string }>;
@@ -59,6 +59,7 @@ export async function postPokerPoll(
   const channel = await fetchSendableChannel(client, config.pokerChannelId);
   const message = await channel.send({
     content: POLL_CONTENT,
+    allowedMentions: { parse: ["everyone"] },
     poll
   });
 

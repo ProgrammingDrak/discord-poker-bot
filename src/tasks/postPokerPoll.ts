@@ -30,8 +30,17 @@ if (existingPoll) {
 const rest = new REST({ version: "10" }).setToken(config.discordToken);
 const message = (await rest.post(Routes.channelMessages(config.pokerChannelId), {
   body: {
-    content: "Vote for every night you could play poker next week.",
-    poll
+    content: "@everyone Vote for every night you could play poker next week.",
+    allowed_mentions: { parse: ["everyone"] },
+    poll: {
+      question: poll.question,
+      answers: poll.answers.map((answer) => ({
+        poll_media: { text: answer.text, emoji: answer.emoji }
+      })),
+      duration: poll.duration,
+      allow_multiselect: poll.allowMultiselect,
+      layout_type: poll.layoutType
+    }
   }
 })) as { id: string; channel_id: string };
 
