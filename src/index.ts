@@ -23,6 +23,12 @@ client.once(Events.ClientReady, (readyClient) => {
   logger.info("Discord poker bot is ready", {
     user: readyClient.user.tag
   });
+
+  if (config.disableInternalScheduler) {
+    logger.info("Internal scheduler is disabled");
+    return;
+  }
+
   startSchedulers(readyClient, config, store);
 });
 

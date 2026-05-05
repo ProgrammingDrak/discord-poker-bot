@@ -66,6 +66,7 @@ npm run dev
 - `TIMEZONE`: defaults to `America/New_York`.
 - `DATABASE_PATH`: defaults to `./data/poker-bot.sqlite`.
 - `TASK_SECRET`: required for secure HTTP task endpoints on web hosts.
+- `DISABLE_INTERNAL_SCHEDULER`: set to `true` when an external scheduler calls the HTTP task endpoints.
 
 ## Cloud Hosting Notes
 

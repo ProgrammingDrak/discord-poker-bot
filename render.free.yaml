@@ -27,3 +27,5 @@ services:
         value: /tmp/poker-bot.sqlite
       - key: TASK_SECRET
         sync: false
+      - key: DISABLE_INTERNAL_SCHEDULER
+        value: "true"
