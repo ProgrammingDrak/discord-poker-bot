@@ -10,6 +10,7 @@ export type BotConfig = {
   databasePath: string;
   taskSecret: string | null;
   disableInternalScheduler: boolean;
+  botStateIssueNumber: number | null;
 };
 
 function required(name: string): string {
@@ -29,6 +30,9 @@ export function loadConfig(): BotConfig {
     timezone: process.env.TIMEZONE ?? "America/New_York",
     databasePath: path.resolve(process.env.DATABASE_PATH ?? "./data/poker-bot.sqlite"),
     taskSecret: process.env.TASK_SECRET ?? null,
-    disableInternalScheduler: process.env.DISABLE_INTERNAL_SCHEDULER === "true"
+    disableInternalScheduler: process.env.DISABLE_INTERNAL_SCHEDULER === "true",
+    botStateIssueNumber: process.env.BOT_STATE_ISSUE_NUMBER
+      ? Number(process.env.BOT_STATE_ISSUE_NUMBER)
+      : null
   };
 }

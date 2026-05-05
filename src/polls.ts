@@ -193,8 +193,12 @@ export function formatWinnerSummary(input: WinnerSummaryInput): string {
   )} with ${voteText} each.`;
 }
 
+export function formatWinnerSummaryFromPoll(poll: APIPoll): string {
+  return formatWinnerSummary(extractWinnerSummaryInput(poll));
+}
+
 function formatWinnerSummaryMessage(poll: APIPoll, messageId: string): string {
-  return `${formatWinnerSummary(extractWinnerSummaryInput(poll))}\nPoll ID: \`${messageId}\``;
+  return `${formatWinnerSummaryFromPoll(poll)}\nPoll ID: \`${messageId}\``;
 }
 
 function extractWinnerSummaryInput(poll: APIPoll): WinnerSummaryInput {

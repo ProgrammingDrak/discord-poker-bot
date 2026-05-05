@@ -5,19 +5,28 @@ on:
     - cron: "*/30 * * * *"
   workflow_dispatch:
 
+permissions:
+  contents: read
+  issues: write
+
 jobs:
   check-poll-summaries:
     runs-on: ubuntu-latest
     steps:
-      - name: Wake Render and check due poll summaries
-        run: |
-          curl --fail --show-error --silent \
-            --request POST \
-            --retry 5 \
-            --retry-delay 20 \
-            --max-time 120 \
-            --header "Authorization: Bearer $TASK_SECRET" \
-            "$BOT_BASE_URL/tasks/check-summaries"
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Check poll summaries
+        run: npx tsx src/tasks/checkPollSummaries.ts
         env:
-          BOT_BASE_URL: ${{ secrets.BOT_BASE_URL }}
-          TASK_SECRET: ${{ secrets.TASK_SECRET }}
+          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+          DISCORD_CLIENT_ID: ${{ secrets.DISCORD_CLIENT_ID }}
+          DISCORD_GUILD_ID: ${{ secrets.DISCORD_GUILD_ID }}
+          POKER_CHANNEL_ID: ${{ secrets.POKER_CHANNEL_ID }}
+          TIMEZONE: America/New_York
+          GITHUB_TOKEN: ${{ github.token }}
+          BOT_STATE_ISSUE_NUMBER: ${{ secrets.BOT_STATE_ISSUE_NUMBER }}
