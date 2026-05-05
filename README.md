@@ -9,7 +9,7 @@ TypeScript Discord bot that posts a weekly native Discord poll for poker availab
 - Keeps the poll open for 48 hours.
 - Allows members to pick multiple days.
 - Posts a winner summary after Discord finalizes poll results.
-- Provides `/poker-poll` for manual testing.
+- Provides GitHub Actions manual workflow dispatch for manual testing.
 - Stores poll metadata in SQLite via Node 24's built-in `node:sqlite`.
 
 ## Setup
@@ -38,13 +38,7 @@ npm run check-channel
 
 The bot needs `View Channel`, `Send Messages`, `Read Message History`, and `Create Polls`.
 
-8. Register the slash command:
-
-```bash
-npm run register-commands
-```
-
-9. Start the bot:
+8. Start the bot:
 
 ```bash
 npm run build
@@ -61,7 +55,7 @@ npm run dev
 
 - `DISCORD_TOKEN`: bot token.
 - `DISCORD_CLIENT_ID`: application/client ID.
-- `DISCORD_GUILD_ID`: server ID for registering `/poker-poll`.
+- `DISCORD_GUILD_ID`: server ID.
 - `POKER_CHANNEL_ID`: channel where polls and summaries should be posted.
 - `TIMEZONE`: defaults to `America/New_York`.
 - `DATABASE_PATH`: defaults to `./data/poker-bot.sqlite`.
