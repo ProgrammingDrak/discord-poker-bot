@@ -1,0 +1,30 @@
+services:
+  - type: worker
+    name: boredom-bot
+    runtime: node
+    plan: starter
+    region: oregon
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    autoDeployTrigger: commit
+    disk:
+      name: poker-bot-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: 24.15.0
+      - key: DISCORD_TOKEN
+        sync: false
+      - key: DISCORD_CLIENT_ID
+        value: "813148551826767893"
+      - key: DISCORD_GUILD_ID
+        value: "734260723919880223"
+      - key: POKER_CHANNEL_ID
+        value: "1464279896812421211"
+      - key: TIMEZONE
+        value: America/New_York
+      - key: DATABASE_PATH
+        value: /data/poker-bot.sqlite
