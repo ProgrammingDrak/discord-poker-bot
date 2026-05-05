@@ -73,3 +73,5 @@ Use an always-on worker/service with Node 24 or newer. On Render, deploy this as
 This repo includes `render.yaml` for a Render Blueprint. `DISCORD_TOKEN` is marked `sync: false`, so provide it in the Render Dashboard during Blueprint setup instead of committing it.
 
 For Railway, this repo includes `railway.toml`. Deploy it as a long-running service, attach a volume mounted at `/data`, and set `DATABASE_PATH=/data/poker-bot.sqlite`.
+
+For a free Render trial run, use `render.free.yaml` or equivalent service settings with `DATABASE_PATH=/tmp/poker-bot.sqlite`. That keeps hosting free but uses ephemeral SQLite state, so poll records can reset on service restarts.
