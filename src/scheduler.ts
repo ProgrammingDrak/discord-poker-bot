@@ -1,9 +1,13 @@
 import { Client } from "discord.js";
 import { DateTime } from "luxon";
 import { BotConfig } from "./config.js";
-import { getNextPokerWeek, getNextWeeklyRun, millisUntil } from "./dates.js";
+import { getNextWeeklyRun, millisUntil } from "./dates.js";
 import { logger } from "./logger.js";
-import { postPokerPoll, postPollSummaryIfFinalized } from "./polls.js";
+import {
+  postPollSummaryIfFinalized,
+  postRecentFinalizedPokerPollSummaries,
+  postScheduledPokerPollIfNeeded
+} from "./polls.js";
 import { PollStore, StoredPoll } from "./store.js";
 
 const RESULT_CHECK_INTERVAL_MS = 5 * 60 * 1000;
@@ -41,26 +45,29 @@ async function postScheduledPollIfNeeded(
   config: BotConfig,
   store: PollStore
 ): Promise<void> {
-  const week = getNextPokerWeek(DateTime.now(), config.timezone);
-  const existingPoll = store.findScheduledPollForWeek(week.weekStartISO);
-
-  if (existingPoll) {
-    logger.info("Skipping duplicate scheduled poker poll", {
-      weekStart: week.weekStartISO,
-      messageId: existingPoll.messageId
-    });
-    return;
-  }
-
-  await postPokerPoll(client, config, store, "scheduled");
+  await postScheduledPokerPollIfNeeded(client, config, store);
 }
 
-async function checkDuePollSummaries(client: Client, store: PollStore): Promise<void> {
+export async function checkDuePollSummaries(client: Client, store: PollStore): Promise<number> {
   const duePolls = store.listPollsDueForSummary(DateTime.utc().toISO() ?? "");
+  let checked = 0;
 
   for (const poll of duePolls) {
     await summarizeWithBriefRetry(client, store, poll);
+    checked += 1;
   }
+
+  return checked;
+}
+
+export async function checkDuePollSummariesWithFallback(
+  client: Client,
+  config: BotConfig,
+  store: PollStore
+): Promise<number> {
+  const checkedStoredPolls = await checkDuePollSummaries(client, store);
+  const postedRecentSummaries = await postRecentFinalizedPokerPollSummaries(client, config);
+  return checkedStoredPolls + postedRecentSummaries;
 }
 
 async function summarizeWithBriefRetry(

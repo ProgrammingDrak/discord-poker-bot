@@ -2,6 +2,8 @@ import {
   type APIMessage,
   type APIPoll,
   type APIPollAnswer,
+  type RESTGetAPIChannelMessagesResult,
+  type Snowflake,
   Routes
 } from "discord-api-types/v10";
 import {
@@ -82,6 +84,25 @@ export async function postPokerPoll(
   return message;
 }
 
+export async function postScheduledPokerPollIfNeeded(
+  client: Client,
+  config: BotConfig,
+  store: PollStore
+): Promise<Message | null> {
+  const week = getNextPokerWeek(DateTime.now(), config.timezone);
+  const existingPoll = store.findScheduledPollForWeek(week.weekStartISO);
+
+  if (existingPoll) {
+    logger.info("Skipping duplicate scheduled poker poll", {
+      weekStart: week.weekStartISO,
+      messageId: existingPoll.messageId
+    });
+    return null;
+  }
+
+  return postPokerPoll(client, config, store, "scheduled");
+}
+
 export async function postPollSummaryIfFinalized(
   client: Client,
   poll: StoredPoll
@@ -107,8 +128,45 @@ export async function postPollSummaryIfFinalized(
   }
 
   const channel = await fetchSendableChannel(client, poll.channelId);
-  await channel.send(formatWinnerSummary(extractWinnerSummaryInput(apiMessage.poll)));
+  await channel.send(formatWinnerSummaryMessage(apiMessage.poll, poll.messageId));
   return true;
+}
+
+export async function postRecentFinalizedPokerPollSummaries(
+  client: Client,
+  config: BotConfig
+): Promise<number> {
+  const messages = (await client.rest.get(Routes.channelMessages(config.pokerChannelId), {
+    query: new URLSearchParams({ limit: "100" })
+  })) as RESTGetAPIChannelMessagesResult;
+
+  const botId = client.user?.id;
+  const alreadySummarized = new Set(
+    messages
+      .filter((message) => message.author.id === botId)
+      .flatMap((message) => [...message.content.matchAll(/Poll ID: `(\d+)`/g)].map((match) => match[1]))
+      .filter((messageId): messageId is Snowflake => Boolean(messageId))
+  );
+
+  const finalizedPolls = messages
+    .filter((message) => message.author.id === botId)
+    .filter((message) => message.content === POLL_CONTENT)
+    .filter((message) => message.poll?.results?.is_finalized)
+    .filter((message) => !alreadySummarized.has(message.id));
+
+  const channel = await fetchSendableChannel(client, config.pokerChannelId);
+  let posted = 0;
+
+  for (const message of finalizedPolls.reverse()) {
+    if (!message.poll) {
+      continue;
+    }
+
+    await channel.send(formatWinnerSummaryMessage(message.poll, message.id));
+    posted += 1;
+  }
+
+  return posted;
 }
 
 export function formatWinnerSummary(input: WinnerSummaryInput): string {
@@ -133,6 +191,10 @@ export function formatWinnerSummary(input: WinnerSummaryInput): string {
   return `Poker poll is closed. Top choices are ${formatList(
     winners.map((winner) => winner.text)
   )} with ${voteText} each.`;
+}
+
+function formatWinnerSummaryMessage(poll: APIPoll, messageId: string): string {
+  return `${formatWinnerSummary(extractWinnerSummaryInput(poll))}\nPoll ID: \`${messageId}\``;
 }
 
 function extractWinnerSummaryInput(poll: APIPoll): WinnerSummaryInput {

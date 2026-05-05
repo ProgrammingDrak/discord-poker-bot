@@ -1,0 +1,23 @@
+name: Poker Poll
+
+on:
+  schedule:
+    - cron: "*/15 14,15 * * 0"
+  workflow_dispatch:
+
+jobs:
+  post-poker-poll:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wake Render and post poker poll
+        run: |
+          curl --fail --show-error --silent \
+            --request POST \
+            --retry 5 \
+            --retry-delay 20 \
+            --max-time 120 \
+            --header "Authorization: Bearer $TASK_SECRET" \
+            "$BOT_BASE_URL/tasks/poker-poll?scheduled=1"
+        env:
+          BOT_BASE_URL: ${{ secrets.BOT_BASE_URL }}
+          TASK_SECRET: ${{ secrets.TASK_SECRET }}

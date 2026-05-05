@@ -25,3 +25,5 @@ services:
         value: America/New_York
       - key: DATABASE_PATH
         value: /tmp/poker-bot.sqlite
+      - key: TASK_SECRET
+        sync: false

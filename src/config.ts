@@ -8,6 +8,7 @@ export type BotConfig = {
   pokerChannelId: string;
   timezone: string;
   databasePath: string;
+  taskSecret: string | null;
 };
 
 function required(name: string): string {
@@ -25,6 +26,7 @@ export function loadConfig(): BotConfig {
     guildId: required("DISCORD_GUILD_ID"),
     pokerChannelId: required("POKER_CHANNEL_ID"),
     timezone: process.env.TIMEZONE ?? "America/New_York",
-    databasePath: path.resolve(process.env.DATABASE_PATH ?? "./data/poker-bot.sqlite")
+    databasePath: path.resolve(process.env.DATABASE_PATH ?? "./data/poker-bot.sqlite"),
+    taskSecret: process.env.TASK_SECRET ?? null
   };
 }

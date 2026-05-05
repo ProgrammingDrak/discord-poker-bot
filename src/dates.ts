@@ -45,3 +45,8 @@ export function getNextWeeklyRun(after: DateTime, timezone: string): DateTime {
 export function millisUntil(target: DateTime, from = DateTime.now()): number {
   return Math.max(0, Math.ceil(target.toUTC().diff(from.toUTC(), "milliseconds").milliseconds));
 }
+
+export function isWeeklyPollWindow(now: DateTime, timezone: string): boolean {
+  const local = now.setZone(timezone);
+  return local.weekday === WEEKLY_POLL_WEEKDAY && local.hour === WEEKLY_POLL_HOUR;
+}

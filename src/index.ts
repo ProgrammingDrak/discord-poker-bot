@@ -14,10 +14,10 @@ import { PollStore } from "./store.js";
 
 const config = loadConfig();
 const store = new PollStore(config.databasePath);
-const healthServer = startHealthServer();
 const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
+const healthServer = startHealthServer({ client, config, store });
 
 client.once(Events.ClientReady, (readyClient) => {
   logger.info("Discord poker bot is ready", {

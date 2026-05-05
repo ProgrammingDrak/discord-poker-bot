@@ -65,6 +65,7 @@ npm run dev
 - `POKER_CHANNEL_ID`: channel where polls and summaries should be posted.
 - `TIMEZONE`: defaults to `America/New_York`.
 - `DATABASE_PATH`: defaults to `./data/poker-bot.sqlite`.
+- `TASK_SECRET`: required for secure HTTP task endpoints on web hosts.
 
 ## Cloud Hosting Notes
 
@@ -75,3 +76,10 @@ This repo includes `render.yaml` for a Render Blueprint. `DISCORD_TOKEN` is mark
 For Railway, this repo includes `railway.toml`. Deploy it as a long-running service, attach a volume mounted at `/data`, and set `DATABASE_PATH=/data/poker-bot.sqlite`.
 
 For a free Render trial run, use `render.free.yaml` or equivalent service settings with `DATABASE_PATH=/tmp/poker-bot.sqlite`. That runs the bot as a free web service with a tiny `/health` endpoint. It keeps hosting free but uses ephemeral SQLite state, so poll records can reset on service restarts.
+
+Free Render scheduled wakeups can call:
+
+- `POST /tasks/poker-poll` every Sunday at 10 AM ET.
+- `POST /tasks/check-summaries` periodically after polls close.
+
+Pass `Authorization: Bearer $TASK_SECRET` on both requests.
