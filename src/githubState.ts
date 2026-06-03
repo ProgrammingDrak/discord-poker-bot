@@ -5,6 +5,9 @@ export type GithubStatePoll = {
   weekEnd: string;
   expectedCloseAt: string;
   summaryPostedAt: string | null;
+  // Reminder keys ("tuesday", "wednesday") already sent for this poll. Optional
+  // for backward compatibility with polls recorded before reminders existed.
+  remindersSent?: string[];
 };
 
 export type GithubState = {

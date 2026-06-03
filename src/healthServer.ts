@@ -2,7 +2,7 @@ import http from "node:http";
 import { Client } from "discord.js";
 import { DateTime } from "luxon";
 import { BotConfig } from "./config.js";
-import { isWeeklyPollWindow } from "./dates.js";
+import { isPollPostWindow } from "./dates.js";
 import { logger } from "./logger.js";
 import { postScheduledPokerPollIfNeeded } from "./polls.js";
 import { checkDuePollSummariesWithFallback } from "./scheduler.js";
@@ -51,7 +51,7 @@ async function handleRequest(
 
       if (
         url.searchParams.get("scheduled") === "1" &&
-        !isWeeklyPollWindow(DateTime.now(), context.config.timezone)
+        !isPollPostWindow(DateTime.now(), context.config.timezone)
       ) {
         sendJson(response, 200, { ok: true, posted: false, reason: "outside_poll_window" });
         return;

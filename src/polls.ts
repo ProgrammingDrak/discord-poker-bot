@@ -16,12 +16,12 @@ import {
 } from "discord.js";
 import { DateTime } from "luxon";
 import { BotConfig } from "./config.js";
-import { getNextPokerWeek, POKER_POLL_DURATION_HOURS } from "./dates.js";
+import { getNextPokerWeek, getPollCloseTime, getPollDurationHours } from "./dates.js";
 import { logger } from "./logger.js";
 import { PollSource, PollStore, StoredPoll } from "./store.js";
 
-const POLL_QUESTION = "When can you play poker next week?";
-const POLL_CONTENT = "@everyone Vote for every night you could play poker next week.";
+const POLL_QUESTION = "When can you play poker this week?";
+const POLL_CONTENT = "@everyone Vote for every night you could play poker this week.";
 
 export type WinnerSummaryInput = {
   answers: Array<{ id: number; text: string }>;
@@ -32,16 +32,18 @@ export function buildPokerPoll(now: DateTime, timezone: string): {
   poll: PollData;
   weekStart: string;
   weekEnd: string;
+  closeAtISO: string;
 } {
   const week = getNextPokerWeek(now, timezone);
 
   return {
     weekStart: week.weekStartISO,
     weekEnd: week.weekEndISO,
+    closeAtISO: getPollCloseTime(now, timezone).toUTC().toISO() ?? "",
     poll: {
       question: { text: POLL_QUESTION },
       answers: week.optionLabels.map((text) => ({ text })),
-      duration: POKER_POLL_DURATION_HOURS,
+      duration: getPollDurationHours(now, timezone),
       allowMultiselect: true,
       layoutType: PollLayoutType.Default
     }
@@ -55,7 +57,7 @@ export async function postPokerPoll(
   source: PollSource
 ): Promise<Message> {
   const now = DateTime.now().setZone(config.timezone);
-  const { poll, weekStart, weekEnd } = buildPokerPoll(now, config.timezone);
+  const { poll, weekStart, weekEnd, closeAtISO } = buildPokerPoll(now, config.timezone);
   const channel = await fetchSendableChannel(client, config.pokerChannelId);
   const message = await channel.send({
     content: POLL_CONTENT,
@@ -68,7 +70,7 @@ export async function postPokerPoll(
     channelId: message.channelId,
     weekStart,
     weekEnd,
-    expectedCloseAt: now.plus({ hours: POKER_POLL_DURATION_HOURS }).toUTC().toISO() ?? "",
+    expectedCloseAt: closeAtISO,
     summaryPostedAt: null,
     source,
     createdAt: now.toUTC().toISO() ?? ""

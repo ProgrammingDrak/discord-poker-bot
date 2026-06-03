@@ -1,7 +1,7 @@
 import { REST, Routes } from "discord.js";
 import { DateTime } from "luxon";
 import { loadConfig } from "../config.js";
-import { isWeeklyPollWindow, POKER_POLL_DURATION_HOURS } from "../dates.js";
+import { isPollPostWindow } from "../dates.js";
 import { loadGithubState, saveGithubState } from "../githubState.js";
 import { logger } from "../logger.js";
 import { buildPokerPoll } from "../polls.js";
@@ -9,13 +9,13 @@ import { buildPokerPoll } from "../polls.js";
 const config = loadConfig();
 const shouldEnforceWindow = process.env.ENFORCE_POLL_WINDOW === "true";
 
-if (shouldEnforceWindow && !isWeeklyPollWindow(DateTime.now(), config.timezone)) {
+if (shouldEnforceWindow && !isPollPostWindow(DateTime.now(), config.timezone)) {
   logger.info("Skipping scheduled poker poll outside poll window");
   process.exit(0);
 }
 
 const now = DateTime.now().setZone(config.timezone);
-const { poll, weekStart, weekEnd } = buildPokerPoll(now, config.timezone);
+const { poll, weekStart, weekEnd, closeAtISO } = buildPokerPoll(now, config.timezone);
 const state = await loadGithubState();
 const existingPoll = state.polls.find((storedPoll) => storedPoll.weekStart === weekStart);
 
@@ -30,7 +30,7 @@ if (existingPoll) {
 const rest = new REST({ version: "10" }).setToken(config.discordToken);
 const message = (await rest.post(Routes.channelMessages(config.pokerChannelId), {
   body: {
-    content: "@everyone Vote for every night you could play poker next week.",
+    content: "@everyone Vote for every night you could play poker this week.",
     allowed_mentions: { parse: ["everyone"] },
     poll: {
       question: poll.question,
@@ -49,8 +49,9 @@ state.polls.push({
   channelId: message.channel_id,
   weekStart,
   weekEnd,
-  expectedCloseAt: now.plus({ hours: POKER_POLL_DURATION_HOURS }).toUTC().toISO() ?? "",
-  summaryPostedAt: null
+  expectedCloseAt: closeAtISO,
+  summaryPostedAt: null,
+  remindersSent: []
 });
 
 await saveGithubState(state);
@@ -59,5 +60,7 @@ logger.info("Posted GitHub-scheduled poker poll", {
   messageId: message.id,
   channelId: message.channel_id,
   weekStart,
-  weekEnd
+  weekEnd,
+  closeAt: closeAtISO,
+  durationHours: poll.duration
 });
