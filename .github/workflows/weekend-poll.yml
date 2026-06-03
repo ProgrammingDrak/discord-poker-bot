@@ -1,0 +1,32 @@
+name: Weekend Poll
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_post:
+        description: "Type POST to publish the Fri-Sun poll now"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  post-weekend-poll:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Post weekend poll
+        if: inputs.confirm_post == 'POST'
+        run: npx tsx src/tasks/postWeekendPoll.ts
+        env:
+          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+          DISCORD_CLIENT_ID: ${{ secrets.DISCORD_CLIENT_ID }}
+          DISCORD_GUILD_ID: ${{ secrets.DISCORD_GUILD_ID }}
+          POKER_CHANNEL_ID: ${{ secrets.POKER_CHANNEL_ID }}
+          TIMEZONE: America/New_York
