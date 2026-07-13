@@ -22,6 +22,7 @@ import { PollSource, PollStore, StoredPoll } from "./store.js";
 
 const POLL_QUESTION = "When can you play poker this week?";
 const POLL_CONTENT = "@everyone Vote for every night you could play poker this week.";
+const OUT_THIS_WEEK_OPTION = "Out this week 😔";
 
 export type WinnerSummaryInput = {
   answers: Array<{ id: number; text: string }>;
@@ -42,7 +43,7 @@ export function buildPokerPoll(now: DateTime, timezone: string): {
     closeAtISO: getPollCloseTime(now, timezone).toUTC().toISO() ?? "",
     poll: {
       question: { text: POLL_QUESTION },
-      answers: week.optionLabels.map((text) => ({ text })),
+      answers: [...week.optionLabels, OUT_THIS_WEEK_OPTION].map((text) => ({ text })),
       duration: getPollDurationHours(now, timezone),
       allowMultiselect: true,
       layoutType: PollLayoutType.Default
