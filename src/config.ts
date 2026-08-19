@@ -6,6 +6,9 @@ export type BotConfig = {
   clientId: string;
   guildId: string;
   pokerChannelId: string;
+  // Quest board channel, used by the game night poll. Optional so the existing
+  // poker workflows keep loading config without it.
+  questBoardChannelId: string | null;
   timezone: string;
   databasePath: string;
   taskSecret: string | null;
@@ -27,6 +30,7 @@ export function loadConfig(): BotConfig {
     clientId: required("DISCORD_CLIENT_ID"),
     guildId: required("DISCORD_GUILD_ID"),
     pokerChannelId: required("POKER_CHANNEL_ID"),
+    questBoardChannelId: process.env.QUEST_BOARD_CHANNEL_ID ?? null,
     timezone: process.env.TIMEZONE ?? "America/New_York",
     databasePath: path.resolve(process.env.DATABASE_PATH ?? "./data/poker-bot.sqlite"),
     taskSecret: process.env.TASK_SECRET ?? null,

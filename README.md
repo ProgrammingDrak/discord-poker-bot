@@ -12,6 +12,27 @@ TypeScript Discord bot that posts a weekly native Discord poll for poker availab
 - Provides GitHub Actions manual workflow dispatch for manual testing.
 - Stores poll metadata in SQLite via Node 24's built-in `node:sqlite`.
 
+## Game Night Poll
+
+A second, independent poll for the `quest board` channel.
+
+- Posts every other Saturday at 2:00 PM in `America/New_York`.
+- Offers the eight Wednesday-through-Saturday nights of the following two weeks.
+- Adds `I can't make it` and `I can host the nights I want to play`, for exactly
+  10 answers, which is Discord's per-poll maximum.
+- Keeps the poll open 72 hours, closing Tuesday 2:00 PM, the day before the
+  earliest candidate night.
+- Allows members to pick multiple nights.
+
+GitHub cron cannot express "every other week", so `Game Night Poll` runs weekly
+and `src/gameNight.ts` drops off weeks by comparing the window start against
+`GAME_NIGHT_ANCHOR_WINDOW_START`. Change that anchor to shift which week the
+game night lands on. Manual `workflow_dispatch` bypasses both the Saturday
+window and the cadence gate.
+
+Requires `QUEST_BOARD_CHANNEL_ID` as an env var locally and as a repository
+secret in GitHub Actions.
+
 ## Setup
 
 1. Create a Discord application and bot in the Discord Developer Portal.
@@ -56,7 +77,8 @@ npm run dev
 - `DISCORD_TOKEN`: bot token.
 - `DISCORD_CLIENT_ID`: application/client ID.
 - `DISCORD_GUILD_ID`: server ID.
-- `POKER_CHANNEL_ID`: channel where polls and summaries should be posted.
+- `POKER_CHANNEL_ID`: channel where poker polls and summaries should be posted.
+- `QUEST_BOARD_CHANNEL_ID`: channel where the game night poll should be posted.
 - `TIMEZONE`: defaults to `America/New_York`.
 - `DATABASE_PATH`: defaults to `./data/poker-bot.sqlite`.
 - `TASK_SECRET`: required for secure HTTP task endpoints on web hosts.

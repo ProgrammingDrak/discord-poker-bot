@@ -8,6 +8,9 @@ export type GithubStatePoll = {
   // Reminder keys ("tuesday", "wednesday") already sent for this poll. Optional
   // for backward compatibility with polls recorded before reminders existed.
   remindersSent?: string[];
+  // Which poll produced this entry. Absent means "poker": the poker tasks were
+  // writing these before game night polls existed and still ignore this field.
+  kind?: "poker" | "gameNight";
 };
 
 export type GithubState = {

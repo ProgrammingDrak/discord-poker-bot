@@ -1,0 +1,46 @@
+name: Game Night Poll
+
+on:
+  schedule:
+    # Saturday 2 PM America/New_York. 18:00 UTC in EDT, 19:00 UTC in EST; the
+    # */15 spread absorbs GitHub's cron delay. Cron cannot express "every other
+    # week", so this fires weekly and the task drops off-week runs by checking
+    # the window against a fixed anchor Wednesday. Per-window dedup via issue
+    # state keeps repeat runs idempotent.
+    - cron: "*/15 18,19 * * 6"
+  workflow_dispatch:
+    inputs:
+      confirm_post:
+        description: "Type POST to publish a game night poll now"
+        required: true
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  post-game-night-poll:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Post game night poll
+        if: github.event_name == 'schedule' || inputs.confirm_post == 'POST'
+        run: npx tsx src/tasks/postGameNightPoll.ts
+        env:
+          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+          DISCORD_CLIENT_ID: ${{ secrets.DISCORD_CLIENT_ID }}
+          DISCORD_GUILD_ID: ${{ secrets.DISCORD_GUILD_ID }}
+          POKER_CHANNEL_ID: ${{ secrets.POKER_CHANNEL_ID }}
+          QUEST_BOARD_CHANNEL_ID: ${{ secrets.QUEST_BOARD_CHANNEL_ID }}
+          TIMEZONE: America/New_York
+          GITHUB_TOKEN: ${{ github.token }}
+          BOT_STATE_ISSUE_NUMBER: ${{ secrets.BOT_STATE_ISSUE_NUMBER }}
+          # Manual dispatch bypasses the Saturday window and the biweekly
+          # cadence gate so a poll can be posted on demand.
+          ENFORCE_POLL_WINDOW: ${{ github.event_name == 'schedule' && 'true' || 'false' }}
