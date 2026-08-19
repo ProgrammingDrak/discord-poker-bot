@@ -1,6 +1,6 @@
 {
-  "name": "discord-poker-bot",
-  "version": "0.1.0",
+  "name": "effectors",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -8,11 +8,11 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "dev": "tsx watch src/index.ts",
-    "start": "node dist/index.js",
-    "check-channel": "tsx src/checkChannel.ts",
-    "discover-discord": "tsx src/discoverDiscord.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "dispatch": "tsx src/cli/dispatch.ts",
+    "catalog": "tsx src/cli/catalog.ts",
+    "doctor": "tsx src/cli/doctor.ts",
+    "discover": "tsx src/cli/discover.ts"
   },
   "dependencies": {
     "discord.js": "^14.19.3",

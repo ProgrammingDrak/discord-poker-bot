@@ -1,0 +1,42 @@
+{
+  "repo": "effectors",
+  "host": "github-actions",
+  "timezone": "America/New_York",
+  "jobs": [
+    {
+      "name": "game-night-poll",
+      "title": "Game Night Poll",
+      "summary": "Biweekly availability poll for game night in the quest board channel. Eight candidate nights plus a can't-make-it and a can-host option.",
+      "surface": "discord",
+      "channelEnv": "QUEST_BOARD_CHANNEL_ID",
+      "enabled": true,
+      "schedule": "every 2 weeks, Saturday 2 PM America/New_York"
+    }
+  ],
+  "retired": [
+    {
+      "name": "poker-poll",
+      "title": "Poker Poll",
+      "retiredAt": "2026-08-19",
+      "reason": "Poker is dead. Workflows disabled, code removed, history kept in git."
+    },
+    {
+      "name": "poll-reminders",
+      "title": "Poker Poll Reminders",
+      "retiredAt": "2026-08-19",
+      "reason": "Retired with the poker poll."
+    },
+    {
+      "name": "poll-summaries",
+      "title": "Poker Poll Summaries",
+      "retiredAt": "2026-08-19",
+      "reason": "Retired with the poker poll."
+    },
+    {
+      "name": "weekend-poll",
+      "title": "Weekend Poll",
+      "retiredAt": "2026-08-19",
+      "reason": "One-off Friday-to-Sunday poker poll, manual dispatch only. Retired with poker."
+    }
+  ]
+}

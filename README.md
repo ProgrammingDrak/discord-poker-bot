@@ -1,102 +1,122 @@
-# Discord Poker Scheduler Bot
+# effectors
 
-TypeScript Discord bot that posts a weekly native Discord poll for poker availability.
+The organism's outward-acting organ: scheduled bots and automations that do
+something to the world on a clock, with no one present.
 
-## What It Does
+The brain (`claude-brain/`) learns and remembers. Sweep Suite decides what Drake
+should do. The Daily Command Center is the surface he touches. This repo is the
+part that **acts outward on a schedule**: it posts the polls, sends the messages,
+pokes the APIs.
 
-- Posts a poker poll every Sunday at 10:00 AM in `America/New_York`.
-- Offers Monday through the following Sunday as day/date choices.
-- Keeps the poll open for 48 hours.
-- Allows members to pick multiple days.
-- Posts a winner summary after Discord finalizes poll results.
-- Provides GitHub Actions manual workflow dispatch for manual testing.
-- Stores poll metadata in SQLite via Node 24's built-in `node:sqlite`.
+## Why one repo instead of one repo per bot
 
-## Game Night Poll
+Every bot needs the same five things: config loading, a Discord client that knows
+the REST quirks, timezone-correct schedule gating, dedup so a replayed run does
+not double-post, and somewhere durable to write state. Writing those five again
+per bot is the actual waste, not the repo count.
 
-A second, independent poll for the `quest board` channel.
+Here they are written once, in `src/runtime/`. An effector is one module in
+`src/jobs/` plus one line in the registry. No new workflow, no new secret, no new
+cron, no new cadence math.
 
-- Posts every other Saturday at 2:00 PM in `America/New_York`.
-- Offers the eight Wednesday-through-Saturday nights of the following two weeks.
-- Adds `I can't make it` and `I can host the nights I want to play`, for exactly
-  10 answers, which is Discord's per-poll maximum.
-- Keeps the poll open 72 hours, closing Tuesday 2:00 PM, the day before the
-  earliest candidate night.
-- Allows members to pick multiple nights.
+## The fleet
 
-GitHub cron cannot express "every other week", so `Game Night Poll` runs weekly
-and `src/gameNight.ts` drops off weeks by comparing the window start against
-`GAME_NIGHT_ANCHOR_WINDOW_START`. Change that anchor to shift which week the
-game night lands on. Manual `workflow_dispatch` bypasses both the Saturday
-window and the cadence gate.
+`catalog.json` is generated from the registry and is the machine-readable
+answer to "what exists". `npm run dispatch -- --list` prints the same thing.
 
-Requires `QUEST_BOARD_CHANNEL_ID` as an env var locally and as a repository
-secret in GitHub Actions.
+| Job | Schedule | Channel |
+|---|---|---|
+| `game-night-poll` | every 2 weeks, Saturday 2 PM ET | `QUEST_BOARD_CHANNEL_ID` |
 
-## Setup
+Retired effectors stay listed in `catalog.json` under `retired` so the organism
+dashboard can show what used to run and when it stopped. The poker poll, its
+reminders, its summaries, and the one-off weekend poll were all retired
+2026-08-19. Their code is in git history; their posting history is preserved in
+the state issue under `legacy`.
 
-1. Create a Discord application and bot in the Discord Developer Portal.
-2. Invite the bot with the `bot` and `applications.commands` scopes.
-3. Give it channel permissions to view the poker channel, send messages, and create polls.
-4. Copy `.env.example` to `.env` and fill in the values.
-5. Install dependencies:
+## How it runs
+
+One workflow, `.github/workflows/effectors.yml`, wakes hourly at :17 and runs the
+dispatcher. The dispatcher decides what is due. GitHub Actions rather than an
+always-on host because a poll must fire whether or not a laptop is awake, which
+is also why this cannot be a step in the nightly heartbeat.
+
+Three properties that matter and are easy to regress:
+
+- **The hour is a lower bound, not a match.** GitHub cron drifts 15-60+ minutes.
+  A job due "Saturday 2 PM" fires on the first hourly wake-up at or after 2 PM.
+- **Dedup is what makes that safe.** Every job computes a `dedupKey` before it
+  runs. One key, one post, however many times the workflow fires.
+- **Cadence is anchored, not counted.** `everyNWeeks` measures whole weeks from a
+  fixed anchor date, so a skipped or replayed run cannot shift the rhythm, and
+  DST and year boundaries do not either.
+
+The workflow uses a `concurrency` group because the state store is a
+read-modify-write on one GitHub issue and two overlapping runs would lose a write.
+
+## Adding an effector
+
+1. Write `src/jobs/<name>.ts` exporting a `Job`: metadata, a `schedule`, a
+   `dedupKey`, and a `run` that posts through the injected `poster`.
+2. Add it to the array in `src/jobs/index.ts`.
+3. Add its channel id to the `EFFECTOR_CHANNELS` repository secret (one JSON
+   object of `ENV_NAME` to channel id), so no workflow edit is needed.
+4. `npm run catalog` to regenerate `catalog.json`. CI fails if you forget.
+5. `npm test`, then dry-run it: `npm run dispatch -- --job <name> --force --dry-run`.
+
+`run` receives a `poster`, never a raw client, which is what lets the tests
+assert on the exact payload without touching Discord.
+
+## Commands
 
 ```bash
-npm install
+npm run dispatch                 # everything due right now
+npm run dispatch -- --list       # the registry, without running anything
+npm run dispatch -- --job game-night-poll --force --dry-run
+npm run dispatch -- --now 2026-08-08T14:00:00 --dry-run   # reproducible schedule tests
+npm run doctor                   # every job's channel + bot permissions
+npm run discover                 # print guild and channel ids
+npm run catalog                  # regenerate catalog.json
+npm test
+npm run build                    # typecheck
 ```
 
-6. Discover server/channel IDs after the bot is invited:
+`--dry-run` prints the exact payload and writes no state. `--now` makes schedule
+decisions reproducible, which is the only sane way to test a biweekly gate
+without waiting two weeks.
 
-```bash
-npm run discover-discord
-```
+## State
 
-7. Check the configured poker channel permissions:
+Durable state lives in the body of one GitHub issue (`BOT_STATE_ISSUE_NUMBER`),
+because a workflow can reach it with nothing but `github.token` and a human can
+read it without a database client. Two collections:
 
-```bash
-npm run check-channel
-```
+- `runs[]` one row per outward action, keyed by job + `dedupKey`. This is what
+  makes replays idempotent.
+- `beats[]` one row per dispatcher decision including skips, so "off week,
+  working as intended" is distinguishable from "silently broken". This is what
+  the organism dashboard reads.
 
-The bot needs `View Channel`, `Send Messages`, `Read Message History`, and `Create Polls`.
+Both are trimmed to the last 200 entries; the issue body caps at 65536 chars.
 
-8. Start the bot:
+## Environment
 
-```bash
-npm run build
-npm start
-```
+| Variable | Purpose |
+|---|---|
+| `DISCORD_TOKEN` | bot token |
+| `DISCORD_GUILD_ID` | server id, used by `doctor` |
+| `EFFECTOR_CHANNELS` | JSON object of `ENV_NAME` to channel id (how Actions supplies channels) |
+| `<JOB>_CHANNEL_ID` | per-job channel, wins over the blob (how `.env` supplies them) |
+| `TIMEZONE` | defaults to `America/New_York` |
+| `GITHUB_TOKEN`, `BOT_STATE_ISSUE_NUMBER` | durable state; without them state is in-memory |
+| `ENFORCE_SCHEDULE=false` | run regardless of schedule, same as `--force` |
+| `EFFECTORS_DRY_RUN=true` | same as `--dry-run` |
 
-For local development:
+Secrets live in GitHub Actions and a local `.env`, never in the repo.
 
-```bash
-npm run dev
-```
+## Where this sits in the workspace
 
-## Environment Variables
-
-- `DISCORD_TOKEN`: bot token.
-- `DISCORD_CLIENT_ID`: application/client ID.
-- `DISCORD_GUILD_ID`: server ID.
-- `POKER_CHANNEL_ID`: channel where poker polls and summaries should be posted.
-- `QUEST_BOARD_CHANNEL_ID`: channel where the game night poll should be posted.
-- `TIMEZONE`: defaults to `America/New_York`.
-- `DATABASE_PATH`: defaults to `./data/poker-bot.sqlite`.
-- `TASK_SECRET`: required for secure HTTP task endpoints on web hosts.
-- `DISABLE_INTERNAL_SCHEDULER`: set to `true` when an external scheduler calls the HTTP task endpoints.
-
-## Cloud Hosting Notes
-
-Use an always-on worker/service with Node 24 or newer. On Render, deploy this as a background worker with a persistent disk mounted at `/data`, and set `DATABASE_PATH=/data/poker-bot.sqlite`.
-
-This repo includes `render.yaml` for a Render Blueprint. `DISCORD_TOKEN` is marked `sync: false`, so provide it in the Render Dashboard during Blueprint setup instead of committing it.
-
-For Railway, this repo includes `railway.toml`. Deploy it as a long-running service, attach a volume mounted at `/data`, and set `DATABASE_PATH=/data/poker-bot.sqlite`.
-
-For a free Render trial run, use `render.free.yaml` or equivalent service settings with `DATABASE_PATH=/tmp/poker-bot.sqlite`. That runs the bot as a free web service with a tiny `/health` endpoint. It keeps hosting free but uses ephemeral SQLite state, so poll records can reset on service restarts.
-
-Free Render scheduled wakeups can call:
-
-- `POST /tasks/poker-poll` every Sunday at 10 AM ET.
-- `POST /tasks/check-summaries` periodically after polls close.
-
-Pass `Authorization: Bearer $TASK_SECRET` on both requests.
+Registered at `claude-brain/repos/effectors.md`. The organism dashboard
+(`claude-brain/scripts/build_organism_dashboard.py`) reads `catalog.json` out of
+the local clone to render the fleet, so the brain describes the bots without
+needing network access or a copy of this TypeScript.

@@ -4,11 +4,11 @@ import {
   CANNOT_MAKE_IT_LABEL,
   CAN_HOST_LABEL,
   buildGameNightPoll,
+  gameNightPoll,
   getGameNightPollCloseTime,
-  getNextGameNightWindow,
-  isGameNightPostWindow,
-  isGameNightWindowOnCadence
-} from "../src/gameNight.js";
+  getNextGameNightWindow
+} from "../src/jobs/gameNightPoll.js";
+import { PollBody, PostedMessage } from "../src/runtime/discord.js";
 
 const timezone = "America/New_York";
 const at = (iso: string) => DateTime.fromISO(iso, { zone: timezone });
@@ -32,9 +32,9 @@ describe("getNextGameNightWindow", () => {
   });
 
   it("skips to the following Wednesday when posted on a Wednesday", () => {
-    const window = getNextGameNightWindow(at("2026-08-12T14:00:00"), timezone);
-
-    expect(window.windowStartISO).toBe("2026-08-19");
+    expect(getNextGameNightWindow(at("2026-08-12T14:00:00"), timezone).windowStartISO).toBe(
+      "2026-08-19"
+    );
   });
 
   it("handles a year boundary", () => {
@@ -51,43 +51,6 @@ describe("getNextGameNightWindow", () => {
 
     expect(close.toISO()).toBe(at("2026-08-11T14:00:00").toISO());
     expect(at(`${window.windowStartISO}T00:00:00`) > close).toBe(true);
-  });
-});
-
-describe("isGameNightWindowOnCadence", () => {
-  it("accepts the anchor window", () => {
-    expect(isGameNightWindowOnCadence("2026-08-12", timezone)).toBe(true);
-  });
-
-  it("rejects the week between scheduled game nights", () => {
-    expect(isGameNightWindowOnCadence("2026-08-19", timezone)).toBe(false);
-  });
-
-  it("accepts two weeks after the anchor", () => {
-    expect(isGameNightWindowOnCadence("2026-08-26", timezone)).toBe(true);
-  });
-
-  it("holds the cadence across a DST change", () => {
-    // EDT ends 2026-11-01, so this range spans the fall-back transition.
-    expect(isGameNightWindowOnCadence("2026-11-04", timezone)).toBe(true);
-    expect(isGameNightWindowOnCadence("2026-11-11", timezone)).toBe(false);
-  });
-
-  it("accepts windows before the anchor on the same parity", () => {
-    expect(isGameNightWindowOnCadence("2026-07-29", timezone)).toBe(true);
-    expect(isGameNightWindowOnCadence("2026-08-05", timezone)).toBe(false);
-  });
-});
-
-describe("isGameNightPostWindow", () => {
-  it("is true on Saturday at or after 2 PM", () => {
-    expect(isGameNightPostWindow(at("2026-08-08T14:00:00"), timezone)).toBe(true);
-    expect(isGameNightPostWindow(at("2026-08-08T19:30:00"), timezone)).toBe(true);
-  });
-
-  it("is false before 2 PM Saturday and on other days", () => {
-    expect(isGameNightPostWindow(at("2026-08-08T13:59:00"), timezone)).toBe(false);
-    expect(isGameNightPostWindow(at("2026-08-09T14:00:00"), timezone)).toBe(false);
   });
 });
 
@@ -122,5 +85,52 @@ describe("buildGameNightPoll", () => {
     const { closeAtISO } = buildGameNightPoll(post, timezone);
 
     expect(closeAtISO).toBe(post.plus({ hours: 72 }).toUTC().toISO());
+  });
+});
+
+describe("gameNightPoll job", () => {
+  it("dedups on the candidate window, not the post date", () => {
+    // A poll posted Saturday and a forced re-run later the same weekend target
+    // the same window, so they must collapse to one key.
+    const saturday = gameNightPoll.dedupKey({ now: at("2026-08-08T14:00:00"), timezone });
+    const sunday = gameNightPoll.dedupKey({ now: at("2026-08-09T09:00:00"), timezone });
+
+    expect(saturday).toBe("2026-08-12");
+    expect(sunday).toBe("2026-08-12");
+  });
+
+  it("posts one @everyone poll to the configured channel", async () => {
+    const sent: Array<{ channelId: string; content: string; poll: PollBody }> = [];
+    const poster = {
+      async postPoll(input: {
+        channelId: string;
+        content: string;
+        mentionEveryone?: boolean;
+        poll: PollBody;
+      }): Promise<PostedMessage> {
+        sent.push({ channelId: input.channelId, content: input.content, poll: input.poll });
+        expect(input.mentionEveryone).toBe(true);
+        return { id: "msg-1", channelId: input.channelId };
+      },
+      async postMessage(): Promise<PostedMessage> {
+        throw new Error("game night should post a poll, not a plain message");
+      }
+    };
+
+    const outcome = await gameNightPoll.run({
+      now: at("2026-08-08T14:00:00"),
+      timezone,
+      channelId: "quest-board",
+      poster
+    });
+
+    expect(sent).toHaveLength(1);
+    expect(sent[0]?.channelId).toBe("quest-board");
+    expect(outcome.status).toBe("posted");
+
+    if (outcome.status === "posted") {
+      expect(outcome.message.id).toBe("msg-1");
+      expect(outcome.meta?.windowStart).toBe("2026-08-12");
+    }
   });
 });
