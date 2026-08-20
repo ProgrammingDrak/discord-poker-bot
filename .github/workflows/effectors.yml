@@ -1,0 +1,72 @@
+name: Effectors
+
+# One coarse cron for the whole fleet. The dispatcher decides which effectors are
+# actually due, so adding a bot never means adding a workflow, a cron line, or a
+# secret. Jobs gate themselves on a local weekday + hour lower bound, which is
+# what makes an hourly wake-up safe: GitHub cron drifts 15-60+ minutes and per-run
+# dedup in the state issue keeps a replay idempotent.
+
+on:
+  schedule:
+    # Hourly at :17. Off the top of the hour on purpose; GitHub's scheduler is
+    # most congested (and most delayed) at :00.
+    - cron: "17 * * * *"
+  workflow_dispatch:
+    inputs:
+      job:
+        description: "Job name, blank runs every job that is due"
+        required: false
+      force:
+        description: "Ignore the schedule gate"
+        type: boolean
+        default: false
+      force_repost:
+        description: "Ignore dedup as well and post again"
+        type: boolean
+        default: false
+      dry_run:
+        description: "Print what would be posted without sending it"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  issues: write
+
+# The state issue is a read-modify-write store. Two dispatchers running at once
+# would lose one of their writes, so runs queue instead of overlapping.
+concurrency:
+  group: effectors-dispatch
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      - name: Dispatch effectors
+        run: |
+          npx tsx src/cli/dispatch.ts \
+            ${JOB:+--job "$JOB"} \
+            ${FORCE:+--force} \
+            ${FORCE_REPOST:+--force-repost} \
+            ${DRY_RUN:+--dry-run}
+        env:
+          JOB: ${{ inputs.job }}
+          FORCE: ${{ inputs.force == true && '1' || '' }}
+          FORCE_REPOST: ${{ inputs.force_repost == true && '1' || '' }}
+          DRY_RUN: ${{ inputs.dry_run == true && '1' || '' }}
+          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+          DISCORD_GUILD_ID: ${{ secrets.DISCORD_GUILD_ID }}
+          # One JSON blob of ENV_NAME -> channel id, so a new effector needs no
+          # new secret and no edit to this file.
+          EFFECTOR_CHANNELS: ${{ secrets.EFFECTOR_CHANNELS }}
+          QUEST_BOARD_CHANNEL_ID: ${{ secrets.QUEST_BOARD_CHANNEL_ID }}
+          TIMEZONE: America/New_York
+          GITHUB_TOKEN: ${{ github.token }}
+          BOT_STATE_ISSUE_NUMBER: ${{ secrets.BOT_STATE_ISSUE_NUMBER }}
