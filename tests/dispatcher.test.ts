@@ -170,6 +170,22 @@ describe("dispatch", () => {
     expect(state.runs[0]?.channelId).toBe("from-blob");
   });
 
+  // GitHub Actions renders an unset secret as an empty string rather than
+  // omitting the variable, so the blob has to win over an empty env var. Getting
+  // this wrong reports "channel not configured" while the right id sits in the
+  // blob, and every hourly dispatch errors.
+  it("does not let an empty env var shadow the EFFECTOR_CHANNELS blob", async () => {
+    process.env.TEST_CHANNEL_ID = "";
+    process.env.EFFECTOR_CHANNELS = JSON.stringify({ TEST_CHANNEL_ID: "from-blob" });
+    resetChannelCache();
+
+    const p = poster();
+    const results = await dispatch({ jobs: [job()], now: SATURDAY_2PM, config, state, poster: p });
+
+    expect(results[0]?.status).toBe("posted");
+    expect(state.runs[0]?.channelId).toBe("from-blob");
+  });
+
   it("keeps running the fleet when one job throws", async () => {
     const p = poster();
     const failing = job({

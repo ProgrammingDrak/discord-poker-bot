@@ -82,8 +82,17 @@ function loadChannelMap(): Record<string, string> {
 
 // Resolve a job's channel. Returns null rather than throwing so the dispatcher
 // decides whether a missing channel is a skip or an error.
+//
+// An EMPTY env var counts as unset, not as an override. GitHub Actions renders
+// `${{ secrets.MISSING }}` as an empty string rather than leaving the variable
+// out, so a `??` here would let an unset secret shadow the EFFECTOR_CHANNELS
+// blob and report "channel not configured" while the blob held the right id.
 export function resolveChannel(channelEnv: string): string | null {
-  return process.env[channelEnv] ?? loadChannelMap()[channelEnv] ?? null;
+  const direct = process.env[channelEnv];
+  if (direct) {
+    return direct;
+  }
+  return loadChannelMap()[channelEnv] ?? null;
 }
 
 // Test seam: forget the parsed blob so a test can change the env and re-resolve.
